@@ -1,4 +1,4 @@
-from random import randint
+from random import choice, randint
 
 import pygame as pg
 
@@ -13,6 +13,7 @@ UP = (0, -1)
 DOWN = (0, 1)
 LEFT = (-1, 0)
 RIGHT = (1, 0)
+DIRECTIONS = (UP, DOWN, LEFT, RIGHT)
 
 DIRECTION_MAP = {
     (UP, pg.K_LEFT): LEFT,
@@ -65,16 +66,18 @@ class GameObject:
     def draw(self):
         """Отрисовать объект на игровом поле."""
         raise NotImplementedError(
-            'Метод draw() должен быть переопределен в дочернем классе.'
+            f'Метод draw() должен быть переопределен в классе '
+            f'{self.__class__.__name__}.'
         )
 
-    def draw_cell(self, position=None, body_color=None):
+    def draw_cell(self, position=None, body_color=None, with_border=True):
         """Отрисовать одну ячейку."""
         cell_position = self.position if position is None else position
         cell_color = self.body_color if body_color is None else body_color
         rect = pg.Rect(cell_position, (GRID_SIZE, GRID_SIZE))
         pg.draw.rect(screen, cell_color, rect)
-        pg.draw.rect(screen, BORDER_COLOR, rect, 1)
+        if with_border:
+            pg.draw.rect(screen, BORDER_COLOR, rect, 1)
 
 
 class Apple(GameObject):
@@ -83,9 +86,7 @@ class Apple(GameObject):
     def __init__(self, occupied_position=None):
         """Инициализировать яблоко."""
         super().__init__(body_color=APPLE_COLOR)
-        if occupied_position is None:
-            occupied_position = []
-        self.randomize_position(occupied_position)
+        self.randomize_position(occupied_position or [])
 
     def randomize_position(self, occupied_position):
         """Установить случайную позицию яблока на поле."""
@@ -108,7 +109,9 @@ class Snake(GameObject):
     def __init__(self):
         """Инициализировать змейку."""
         super().__init__(body_color=SNAKE_COLOR)
+        self.start_position = self.position
         self.reset()
+        self.direction = RIGHT
 
     def get_head_position(self):
         """Вернуть позицию головы змейки."""
@@ -124,30 +127,42 @@ class Snake(GameObject):
         """Переместить змейку на один шаг."""
         head_x, head_y = self.get_head_position()
         direction_x, direction_y = self.direction
-        self.position = (
+        new_head_position = (
             (head_x + direction_x * GRID_SIZE) % SCREEN_WIDTH,
             (head_y + direction_y * GRID_SIZE) % SCREEN_HEIGHT,
         )
-        self.positions.insert(0, self.position)
+        self.positions.insert(0, new_head_position)
+        self.position = new_head_position
 
         if len(self.positions) > self.length:
             self.last = self.positions.pop()
         else:
             self.last = None
 
+    def draw(self):
+        """Отрисовать змейку на игровом поле."""
+        if self.last is not None:
+            self.draw_cell(
+                self.last,
+                BOARD_BACKGROUND_COLOR,
+                with_border=False
+            )
+
+        for position in self.positions:
+            self.draw_cell(position)
+
     def reset(self):
         """Сбросить змейку в начальное состояние."""
-        self.position = (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)
         self.length = 1
+        self.position = self.start_position
         self.positions = [self.position]
-        self.direction = RIGHT
+        self.direction = choice(DIRECTIONS)
         self.next_direction = None
         self.last = None
 
-    def draw(self):
-        """Отрисовать змейку на игровом поле."""
-        for position in self.positions:
-            self.draw_cell(position)
+    def has_self_collision(self):
+        """Проверить, столкнулась ли змейка сама с собой."""
+        return self.get_head_position() in self.positions[1:]
 
 
 def handle_keys(game_object, speed):
@@ -181,21 +196,19 @@ def main():
     snake = Snake()
     apple = Apple(snake.positions)
     speed = DEFAULT_SPEED
+    screen.fill(BOARD_BACKGROUND_COLOR)
 
     while True:
         clock.tick(speed)
-        screen.fill(BOARD_BACKGROUND_COLOR)
-
         speed = handle_keys(snake, speed)
         snake.update_direction()
         snake.move()
 
-        if snake.get_head_position() in snake.positions[1:]:
+        if snake.has_self_collision():
             snake.reset()
             screen.fill(BOARD_BACKGROUND_COLOR)
             apple.randomize_position(snake.positions)
-
-        if snake.get_head_position() == apple.position:
+        elif snake.get_head_position() == apple.position:
             snake.length += 1
             apple.randomize_position(snake.positions)
 
