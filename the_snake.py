@@ -141,7 +141,7 @@ class Snake(GameObject):
 
     def draw(self):
         """Отрисовать змейку на игровом поле."""
-        if self.last is not None:
+        if self.last:
             self.draw_cell(
                 self.last,
                 BOARD_BACKGROUND_COLOR,
@@ -154,15 +154,10 @@ class Snake(GameObject):
     def reset(self):
         """Сбросить змейку в начальное состояние."""
         self.length = 1
-        self.position = self.start_position
-        self.positions = [self.position]
+        self.positions = [self.start_position]
         self.direction = choice(DIRECTIONS)
         self.next_direction = None
         self.last = None
-
-    def has_self_collision(self):
-        """Проверить, столкнулась ли змейка сама с собой."""
-        return self.get_head_position() in self.positions[1:]
 
 
 def handle_keys(game_object, speed):
@@ -196,7 +191,6 @@ def main():
     snake = Snake()
     apple = Apple(snake.positions)
     speed = DEFAULT_SPEED
-    screen.fill(BOARD_BACKGROUND_COLOR)
 
     while True:
         clock.tick(speed)
@@ -204,7 +198,7 @@ def main():
         snake.update_direction()
         snake.move()
 
-        if snake.has_self_collision():
+        if snake.get_head_position() in snake.positions[1:]:
             snake.reset()
             screen.fill(BOARD_BACKGROUND_COLOR)
             apple.randomize_position(snake.positions)
